@@ -15,6 +15,7 @@
         <method importPath="math/rand" receiver="*Rand" name="Read" />
         <method importPath="clogedler/framework" receiver="*Context" name="Json" />
         <method importPath="net/http" receiver="*Server" name="ListenAndServe" />
+        <method importPath="clogedler/framework" receiver="*Context" name="Next" />
       </methods>
     </inspection_tool>
     <inspection_tool class="SpellCheckingInspection" enabled="false" level="TYPO" enabled_by_default="false">
