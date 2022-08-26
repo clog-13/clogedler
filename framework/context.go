@@ -1,16 +1,13 @@
 package framework
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 )
+
+var _ context.Context = new(Context)
 
 type Context struct {
 	request        *http.Request
@@ -21,8 +18,10 @@ type Context struct {
 	writerMux  *sync.Mutex // 写保护机制
 
 	// 当前请求的handler链条
-	handlers []ControllerHandler
-	index    int // 当前请求调用到调用链的哪个节点
+	handlerlist []ControllerHandler
+	handlerIdx  int // 当前请求调用到调用链的哪个节点
+
+	params map[string]string // url路由匹配的参数
 }
 
 func NewContext(r *http.Request, w http.ResponseWriter) *Context {
@@ -31,7 +30,7 @@ func NewContext(r *http.Request, w http.ResponseWriter) *Context {
 		responseWriter: w,
 		ctx:            r.Context(),
 		writerMux:      &sync.Mutex{},
-		index:          1,
+		handlerIdx:     -1,
 	}
 }
 
@@ -59,14 +58,18 @@ func (ctx *Context) HasTimeout() bool {
 
 // SetHandlers 为context设置handlers
 func (ctx *Context) SetHandlers(handlers []ControllerHandler) {
-	ctx.handlers = handlers
+	ctx.handlerlist = handlers
+}
+
+func (ctx *Context) setParams(params map[string]string) {
+	ctx.params = params
 }
 
 // Next 核心函数，调用context的下一个函数
 func (ctx *Context) Next() error {
-	ctx.index++
-	if ctx.index < len(ctx.handlers) {
-		if err := ctx.handlers[ctx.index](ctx); err != nil {
+	ctx.handlerIdx++
+	if ctx.handlerIdx < len(ctx.handlerlist) {
+		if err := ctx.handlerlist[ctx.handlerIdx](ctx); err != nil {
 			return err
 		}
 	}
@@ -96,144 +99,5 @@ func (ctx *Context) Err() error {
 func (ctx *Context) Value(key any) interface{} {
 	return ctx.BaseContext().Value(key)
 }
-
-// #endregion
-
-// #region query url
-
-func (ctx *Context) QueryInt(key string, def int) int {
-	params := ctx.QueryAll()
-	if vals, ok := params[key]; ok {
-		ln := len(vals)
-		if ln > 0 {
-			intval, err := strconv.Atoi(vals[ln-1])
-			if err != nil {
-				return def
-			}
-			return intval
-		}
-	}
-	return def
-}
-
-func (ctx *Context) QueryString(key string, def string) string {
-	params := ctx.QueryAll()
-	if vals, ok := params[key]; ok {
-		ln := len(vals)
-		if ln > 0 {
-			return vals[ln-1]
-		}
-	}
-	return def
-}
-
-func (ctx *Context) QueryArray(key string, def []string) []string {
-	params := ctx.QueryAll()
-	if vals, ok := params[key]; ok {
-		return vals
-	}
-	return def
-}
-
-func (ctx *Context) QueryAll() map[string][]string {
-	if ctx.request != nil {
-		return ctx.request.URL.Query()
-	}
-	return map[string][]string{}
-}
-
-// #endregion
-
-// #region form post
-
-func (ctx *Context) FormInt(key string, def int) int {
-	params := ctx.FormAll()
-	if vals, ok := params[key]; ok {
-		ln := len(vals)
-		if ln > 0 {
-			intval, err := strconv.Atoi(vals[ln-1])
-			if err != nil {
-				return def
-			}
-			return intval
-		}
-	}
-	return def
-}
-
-func (ctx *Context) FormString(key string, def string) string {
-	params := ctx.FormAll()
-	if vals, ok := params[key]; ok {
-		ln := len(vals)
-		if ln > 0 {
-			return vals[ln-1]
-		}
-	}
-	return def
-}
-
-func (ctx *Context) FormArray(key string, def []string) []string {
-	params := ctx.FormAll()
-	if vals, ok := params[key]; ok {
-		return vals
-	}
-	return def
-}
-
-func (ctx *Context) FormAll() map[string][]string {
-	if ctx.request != nil {
-		return ctx.request.PostForm
-	}
-	return map[string][]string{}
-}
-
-// #endregion
-
-// #region application/json post
-
-func (ctx *Context) BindJson(obj any) error {
-	if ctx.request != nil {
-		body, err := ioutil.ReadAll(ctx.request.Body)
-		if err != nil {
-			return err
-		}
-		ctx.request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-
-		err = json.Unmarshal(body, obj)
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("ctx.request empty")
-	}
-	return nil
-}
-
-// #endregion
-
-// #region response
-
-func (ctx *Context) Json(status int, obj any) error {
-	if ctx.HasTimeout() {
-		return nil
-	}
-	ctx.responseWriter.Header().Set("Content-Type", "application/json")
-	ctx.responseWriter.WriteHeader(status)
-	byt, err := json.Marshal(obj)
-	if err != nil {
-		ctx.responseWriter.WriteHeader(500)
-		return err
-	}
-	_, _ = ctx.responseWriter.Write(byt)
-	return nil
-}
-
-//func (ctx *Context) HTML(status int, obj interface{}, template string) error {
-//	return nil
-//}
-//
-//func (ctx *Context) Text(status int, obj string) error {
-//	return nil
-//}
 
 // #endregion

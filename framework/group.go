@@ -18,7 +18,7 @@ type IGroup interface {
 // Group struct 实现了IGroup
 type Group struct {
 	core   *Core  // 指向core结构
-	parent *Group //指向上一个Group，如果有的话
+	parent *Group // 指向上一个Group，如果有的话
 	prefix string // 这个group的通用前缀
 
 	middlewares []ControllerHandler // 存放中间件
@@ -34,28 +34,28 @@ func NewGroup(core *Core, prefix string) *Group {
 	}
 }
 
-// 实现Get方法
+// Get 实现Get方法
 func (g *Group) Get(uri string, handlers ...ControllerHandler) {
 	uri = g.getAbsolutePrefix() + uri
 	allHandlers := append(g.getMiddlewares(), handlers...)
 	g.core.Get(uri, allHandlers...)
 }
 
-// 实现Post方法
+// Post 实现Post方法
 func (g *Group) Post(uri string, handlers ...ControllerHandler) {
 	uri = g.getAbsolutePrefix() + uri
 	allHandlers := append(g.getMiddlewares(), handlers...)
 	g.core.Post(uri, allHandlers...)
 }
 
-// 实现Put方法
+// Put 实现Put方法
 func (g *Group) Put(uri string, handlers ...ControllerHandler) {
 	uri = g.getAbsolutePrefix() + uri
 	allHandlers := append(g.getMiddlewares(), handlers...)
 	g.core.Put(uri, allHandlers...)
 }
 
-// 实现Delete方法
+// Delete 实现Delete方法
 func (g *Group) Delete(uri string, handlers ...ControllerHandler) {
 	uri = g.getAbsolutePrefix() + uri
 	allHandlers := append(g.getMiddlewares(), handlers...)
